@@ -147,13 +147,19 @@ export class Player {
     if (input.back) wish.sub(fwd);
     if (input.right) wish.add(right);
     if (input.left) wish.sub(right);
-    const moving = wish.lengthSq() > 0;
+    // analog stick (touch): magnitude scales speed, full deflection sprints
+    let analog = 1;
+    if (input.axisX || input.axisY) {
+      wish.addScaledVector(right, input.axisX).addScaledVector(fwd, input.axisY);
+      analog = Math.min(1, Math.hypot(input.axisX, input.axisY));
+    }
+    const moving = wish.lengthSq() > 0.01;
     if (moving) wish.normalize();
 
     const ground = groundAt(this.position.x, this.position.z);
     this.swimming = ground < -1.2 && this.position.y < 0.2;
-    let speed = input.sprint ? 10.5 : 6;
-    if (this.swimming) speed = 3.8;
+    let speed = input.sprint || analog > 0.95 ? 10.5 : 6 * Math.min(1, analog / 0.8);
+    if (this.swimming) speed = 3.8 * Math.min(1, analog / 0.8);
     if (!this.onGround && !this.swimming) speed *= 0.9;
 
     const accel = this.onGround || this.swimming ? 12 : 3.5;

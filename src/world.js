@@ -212,11 +212,11 @@ export function buildClouds(sunDir) {
   return mesh;
 }
 
-export function buildWater(sunDir) {
+export function buildWater(sunDir, res = 1024) {
   const normals = makeWaterNormals();
   const water = new Water(new THREE.PlaneGeometry(5000, 5000), {
-    textureWidth: 1024,
-    textureHeight: 1024,
+    textureWidth: res,
+    textureHeight: res,
     waterNormals: normals,
     sunDirection: sunDir.clone(),
     sunColor: 0xffe8c8,
@@ -459,7 +459,7 @@ function pineGeometry() {
   return foliage;
 }
 
-export function buildTrees() {
+export function buildTrees(count = 700) {
   const group = new THREE.Group();
   const foliageGeo = pineGeometry();
   const trunkGeo = new THREE.CylinderGeometry(0.12, 0.34, 10, 8);
@@ -470,7 +470,7 @@ export function buildTrees() {
   });
   const t = makeRockTextures(1);
   const trunkMat = new THREE.MeshStandardMaterial({ color: srgb(0.33, 0.24, 0.17), map: t.map, normalMap: t.normalMap, roughness: 1 });
-  const N = 700;
+  const N = count;
   const foliage = new THREE.InstancedMesh(foliageGeo, foliageMat, N);
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();

@@ -13,18 +13,22 @@ import { Sfx } from './audio.js';
 import { Player } from './player.js';
 import { Spirit, Orb, randomSpawnPoint } from './enemies.js';
 import { Bending, ELEMENTS } from './bending.js';
+import { TouchControls, IS_TOUCH } from './touch.js';
 
 const params = new URLSearchParams(location.search);
 const LOW = params.get('q') === 'low';
-const MSAA = LOW || params.get('msaa') === '0' ? 0 : 4;
-const GRASS = LOW ? 0 : Math.min(1, Math.max(0, parseFloat(params.get('grass') ?? '1')));
+// phones get lighter defaults; every setting can still be overridden via the URL
+const MSAA = LOW || IS_TOUCH || params.get('msaa') === '0' ? 0 : 4;
+const GRASS = LOW ? 0 : Math.min(1, Math.max(0, parseFloat(params.get('grass') ?? (IS_TOUCH ? '0.35' : '1'))));
+const SMALL = LOW || IS_TOUCH;
+if (IS_TOUCH) document.body.classList.add('touch');
 const $ = (id) => document.getElementById(id);
 const setLoad = (pct, text) => { $('load-bar').style.width = pct + '%'; $('load-text').textContent = text; };
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
 // ---------- renderer & scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW ? 1 : 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW ? 1 : IS_TOUCH ? 1.25 : 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.72;
@@ -39,7 +43,7 @@ const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 90
 const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 14), THREE.MathUtils.degToRad(215));
 const sun = new THREE.DirectionalLight(0xffdcb4, 3.4);
 sun.castShadow = true;
-sun.shadow.mapSize.set(LOW ? 1024 : 2048, LOW ? 1024 : 2048);
+sun.shadow.mapSize.set(SMALL ? 1024 : 2048, SMALL ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 400 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.05;
@@ -61,7 +65,7 @@ async function buildWorld() {
   scene.add(buildTerrain());
   setLoad(45, 'Water…');
   await nextFrame();
-  water = buildWater(sunDir);
+  water = buildWater(sunDir, SMALL ? 512 : 1024);
   scene.add(water);
   setLoad(55, 'Rotsen en ruïnes…');
   await nextFrame();
@@ -74,7 +78,7 @@ async function buildWorld() {
   scene.add(brazierLight);
   setLoad(70, 'Bossen planten…');
   await nextFrame();
-  const trees = buildTrees();
+  const trees = buildTrees(SMALL ? 450 : 700);
   scene.add(trees.group);
   colliders.push(...trees.colliders);
   if (GRASS > 0) {
@@ -193,6 +197,9 @@ function setElement(e) {
   element = e;
   document.querySelectorAll('.el').forEach((n) => n.classList.toggle('active', n.dataset.el === e));
   $('el-name').textContent = ELEMENTS[e].name;
+  const atk = $('btn-attack');
+  atk.style.setProperty('--c', `var(--${e})`);
+  atk.innerHTML = document.querySelector(`.el[data-el="${e}"] svg`).outerHTML;
 }
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
@@ -223,9 +230,27 @@ addEventListener('mousemove', (e) => {
 });
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === renderer.domElement;
-  if (!locked && state === 'play') { state = 'paused'; show('pause'); }
+  if (!locked && state === 'play' && !IS_TOUCH) pauseGame();
 });
-function lock() { renderer.domElement.requestPointerLock?.(); }
+function lock() {
+  if (IS_TOUCH) {
+    // best effort: fullscreen + landscape (Android); iOS ignores this
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      el.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+    }
+    return;
+  }
+  renderer.domElement.requestPointerLock?.();
+}
+function pauseGame() {
+  if (state !== 'play') return;
+  state = 'paused';
+  mouseDown = false;
+  touch?.reset();
+  show('pause');
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 
 $('start-btn').addEventListener('click', () => { sfx.init(); startGame(); });
 $('pause').addEventListener('click', () => { state = 'play'; hide('pause'); lock(); });
@@ -268,7 +293,7 @@ function aimPoint() {
     const to = e.position.clone().sub(origin);
     const t = to.dot(_ray);
     if (t < 2 || t > 120) continue;
-    const off = to.sub(_ray.clone().multiplyScalar(t)).length();
+    const off = to.sub(_ray.clone().multiplyScalar(t)).length() / (IS_TOUCH ? Math.max(1, t * 0.09) : 1);
     if (off < bestD) { bestD = off; best = e; }
   }
   if (best) return best.position.clone();
@@ -298,8 +323,9 @@ function startGame() {
   hide('title'); hide('dead'); hide('pause'); show('hud');
   setElement('fire');
   state = 'play';
+  touch?.reset();
   lock();
-  toast('Verdedig het heiligdom tegen de schimgeesten', true);
+  toast(IS_TOUCH ? 'Verdedig het heiligdom' : 'Verdedig het heiligdom tegen de schimgeesten', true);
 }
 
 function spawnWave() {
@@ -328,8 +354,15 @@ function updatePlay(dt) {
   const input = {
     forward: keys.KeyW || keys.ArrowUp, back: keys.KeyS || keys.ArrowDown,
     left: keys.KeyA || keys.ArrowLeft, right: keys.KeyD || keys.ArrowRight,
-    sprint: keys.ShiftLeft || keys.ShiftRight, jump: keys.Space, jumpPressed,
+    sprint: keys.ShiftLeft || keys.ShiftRight, jump: keys.Space || touch?.jumpHeld, jumpPressed: jumpPressed || touch?.jumpPressed,
+    axisX: touch?.moveX || 0, axisY: touch?.moveY || 0,
   };
+  if (touch) {
+    touch.jumpPressed = false;
+    const [dx, dy] = touch.consumeLook();
+    yaw -= dx * 0.0062;
+    pitch = THREE.MathUtils.clamp(pitch + dy * 0.0062, -0.45, 1.2);
+  }
   const wasGround = player.onGround, prevVy = player.velocity.y;
   player.update(dt, input, yaw, element);
   if (!wasGround && player.onGround && prevVy < -14) {
@@ -342,7 +375,7 @@ function updatePlay(dt) {
   if (player.swimming && Math.hypot(player.velocity.x, player.velocity.z) > 1 && Math.random() < 0.5) {
     spray.emit({ x: player.position.x, y: 0.05, z: player.position.z, vx: (Math.random() - 0.5) * 2, vy: 1.5 + Math.random(), vz: (Math.random() - 0.5) * 2, life: 0.6, size0: 0.15, size1: 0.05, c0: [0.85, 0.95, 1], alpha: 0.8, grav: -9 });
   }
-  if (mouseDown && element !== 'earth') doPrimary();
+  if ((mouseDown || touch?.attackHeld) && element !== 'earth') doPrimary();
 
   bending.update(dt);
 
@@ -473,6 +506,7 @@ function tick(dt, skipRender) {
 
 function resize() {
   camera.aspect = innerWidth / innerHeight;
+  camera.fov = camera.aspect < 1 ? 75 : 58; // see more of the world in portrait
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
@@ -480,6 +514,13 @@ function resize() {
   allParticles.forEach((p) => p.setViewport(h, camera.fov));
 }
 addEventListener('resize', resize);
+
+const touch = IS_TOUCH ? new TouchControls($('hud'), {
+  attack: () => { if (state === 'play') doPrimary(); },
+  special: () => { if (state === 'play') doSpecial(); },
+  element: (e) => setElement(e),
+  pause: () => pauseGame(),
+}) : null;
 
 window.__debug = {
   startGame, doPrimary, doSpecial, setElement, spawnWave,

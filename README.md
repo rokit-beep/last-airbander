@@ -16,7 +16,33 @@ python3 -m http.server 8000
 # of: npx serve .
 ```
 
-Open daarna <http://localhost:8000>. Werkt ook direct via GitHub Pages.
+Open daarna <http://localhost:8000>.
+
+### Online via GitHub Pages
+
+De workflow `.github/workflows/pages.yml` zet het spel bij elke push automatisch online op
+`https://rokit-beep.github.io/last-airbander/`. Eenmalig instellen:
+
+1. Pages werkt op een gratis account alleen voor **publieke** repositories
+   (*Settings → General → Danger Zone → Change visibility*). Met GitHub Pro kan het ook privé.
+2. *Settings → Pages → Build and deployment → Source*: kies **GitHub Actions**.
+3. *Actions → Deploy naar GitHub Pages → Run workflow* (of push een nieuwe commit).
+
+### Op de telefoon
+
+Op een touchscreen verschijnen automatisch touchknoppen. Liggend spelen werkt het best.
+
+| Touch | Actie |
+| --- | --- |
+| Linkerduim (overal op linkerhelft) | Lopen; helemaal uitduwen = rennen |
+| Rechterhelft slepen | Rondkijken en richten (met hulp bij het richten) |
+| Grote knop | Basisaanval (vasthouden) |
+| ★ | Speciale kracht |
+| ↑ | Springen (vasthouden = zweven bij lucht) |
+| Iconen bovenaan | Element wisselen |
+| ⏸ | Pauze |
+
+Telefoons krijgen automatisch lichtere grafische instellingen (minder gras, kleinere schaduwen en reflecties).
 
 | Toets | Actie |
 | --- | --- |
@@ -27,6 +53,8 @@ Open daarna <http://localhost:8000>. Werkt ook direct via GitHub Pages.
 | 1–4, Q/E, scrollwiel | Element wisselen |
 | Spatie | Springen (bij lucht: vasthouden om te zweven) |
 | Esc | Pauze |
+
+(Op de computer)
 
 ### De vier elementen
 
