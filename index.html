@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0a09">
+<title>Elementia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #f4ead8;
+    --muted: rgba(244, 234, 216, 0.7);
+    --panel: rgba(14, 12, 10, 0.55);
+    --gold: #d6b26a;
+    --fire: #ff7a2e;
+    --water: #4fb6e6;
+    --earth: #9bbf4a;
+    --air: #e8e2c8;
+    --hp: #c8402c;
+    --chi: #4fb6e6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #0b0a09; color: var(--ink); font-family: Inter, system-ui, sans-serif;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  .overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center;
+    overflow-y: auto; touch-action: pan-y;
+    text-align: center; padding: 16px; z-index: 10;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.15), rgba(0,0,0,0.7));
+  }
+  h1 {
+    font-family: Cinzel, serif; font-weight: 700; letter-spacing: 0.18em; margin: 0;
+    font-size: clamp(40px, 9vw, 104px); text-shadow: 0 4px 30px rgba(0,0,0,0.6);
+  }
+  .sub { font-family: Cinzel, serif; letter-spacing: 0.3em; color: var(--gold); margin: 6px 0 28px; font-size: clamp(12px, 2vw, 16px); }
+  .lore { max-width: 560px; color: var(--muted); line-height: 1.6; margin: 0 0 24px; font-size: 15px; }
+  .btn {
+    font-family: Cinzel, serif; font-size: 18px; letter-spacing: 0.15em; color: #1a140c; background: var(--gold);
+    border: 0; padding: 14px 40px; border-radius: 2px; cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    transition: transform 0.15s, filter 0.15s;
+  }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .controls {
+    display: grid; grid-template-columns: auto auto; gap: 6px 20px; margin-top: 28px; text-align: left;
+    background: var(--panel); padding: 16px 22px; border-radius: 4px; font-size: 13px; color: var(--muted);
+    backdrop-filter: blur(6px);
+  }
+  .controls b { color: var(--ink); font-weight: 600; }
+  .elements-legend { display: flex; gap: 18px; justify-content: center; margin-top: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); max-width: 720px; }
+  .elements-legend div { max-width: 160px; }
+  .elements-legend strong { display: block; font-family: Cinzel, serif; letter-spacing: 0.1em; }
+
+  #loading { background: #0b0a09; }
+  .load-track { width: min(320px, 70vw); height: 2px; background: rgba(255,255,255,0.15); margin-top: 24px; }
+  #load-bar { height: 100%; width: 0; background: var(--gold); transition: width 0.3s; }
+  #load-text { margin-top: 12px; color: var(--muted); font-size: 13px; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .bars { position: absolute; left: 24px; top: 22px; width: min(280px, 60vw); }
+  .bar-label { font-size: 11px; letter-spacing: 0.2em; color: var(--muted); margin: 8px 0 4px; text-transform: uppercase; }
+  .bar { position: relative; height: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15); }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; display: block; transition: width 0.15s; }
+  #hp { background: linear-gradient(90deg, #8a2414, var(--hp)); }
+  #chi { background: linear-gradient(90deg, #1d5f84, var(--chi)); }
+  #chi-cost { position: absolute; top: -3px; bottom: -3px; width: 2px; background: rgba(255,255,255,0.7); }
+  .bar.flash { animation: flash 0.3s; }
+  @keyframes flash { 50% { border-color: #ff5a3a; box-shadow: 0 0 12px #ff5a3a; } }
+
+  .stats { position: absolute; right: 24px; top: 22px; text-align: right; font-family: Cinzel, serif; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+  .stats .big { font-size: 28px; }
+  .stats .small { font-size: 12px; letter-spacing: 0.2em; color: var(--muted); font-family: Inter, sans-serif; }
+
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.8); box-shadow: 0 0 3px rgba(0,0,0,0.8); }
+  #crosshair::before { left: 10px; top: 4px; width: 2px; height: 14px; }
+  #crosshair::after { top: 10px; left: 4px; height: 2px; width: 14px; }
+
+  .element-bar { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: flex-end; }
+  .el {
+    width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; position: relative;
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(6px);
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; color: var(--c);
+  }
+  .el svg { width: 28px; height: 28px; }
+  .el span { position: absolute; top: -6px; right: -4px; font-size: 11px; background: rgba(0,0,0,0.7); padding: 1px 6px; border-radius: 8px; color: var(--muted); }
+  .el.active { transform: scale(1.18); border-color: var(--c); box-shadow: 0 0 22px color-mix(in srgb, var(--c) 60%, transparent); }
+  #el-name { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); font-family: Cinzel, serif; letter-spacing: 0.3em; font-size: 14px; color: var(--muted); }
+
+  #toast {
+    position: absolute; top: 22%; left: 50%; transform: translate(-50%, -10px); font-family: Cinzel, serif; letter-spacing: 0.12em;
+    font-size: clamp(16px, 2.6vw, 24px); opacity: 0; transition: opacity 0.4s, transform 0.4s; text-shadow: 0 2px 14px rgba(0,0,0,0.8);
+    white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .hint { position: absolute; bottom: 10px; right: 16px; font-size: 11px; color: rgba(255,255,255,0.45); }
+
+  /* ---------- touch controls ---------- */
+  body:not(.touch) .touch-only { display: none !important; }
+  body.touch .desktop-only { display: none !important; }
+  .touch-zone { position: absolute; inset: 0; pointer-events: auto; z-index: 1; }
+  .stick {
+    position: absolute; z-index: 2; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.18); pointer-events: none;
+  }
+  .knob {
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,0.55); box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
+  .tbtn {
+    position: absolute; border-radius: 50%; display: grid; place-items: center; pointer-events: auto;
+    background: rgba(14,12,10,0.45); border: 2px solid rgba(255,255,255,0.35); color: var(--ink);
+    font-family: Cinzel, serif; font-size: 11px; letter-spacing: 0.08em; backdrop-filter: blur(4px);
+    transition: transform 0.08s, background 0.08s; z-index: 3;
+  }
+  .tbtn svg { width: 44%; height: 44%; }
+  .tbtn.pressed { transform: scale(0.92); background: rgba(255,255,255,0.25); }
+  #btn-attack { --c: var(--fire); width: 88px; height: 88px; right: calc(26px + env(safe-area-inset-right)); bottom: calc(30px + env(safe-area-inset-bottom)); border-color: var(--c); color: var(--c); box-shadow: 0 0 18px color-mix(in srgb, var(--c) 40%, transparent); }
+  #btn-special { width: 62px; height: 62px; right: calc(128px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom)); }
+  #btn-jump { width: 62px; height: 62px; right: calc(40px + env(safe-area-inset-right)); bottom: calc(136px + env(safe-area-inset-bottom)); }
+  #btn-pause { width: 38px; height: 38px; top: calc(14px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right)); }
+  body.touch .stats { right: calc(64px + env(safe-area-inset-right)); top: calc(12px + env(safe-area-inset-top)); }
+  body.touch .stats .big { font-size: 20px; }
+  body.touch .bars { width: min(220px, 40vw); left: calc(16px + env(safe-area-inset-left)); top: calc(10px + env(safe-area-inset-top)); }
+  body.touch .bar-label { margin: 4px 0 3px; font-size: 10px; }
+  body.touch #el-name { display: none; }
+  body.touch .element-bar { top: calc(12px + env(safe-area-inset-top)); bottom: auto; gap: 10px; z-index: 3; }
+  body.touch .el { width: 44px; height: 44px; pointer-events: auto; }
+  body.touch .el svg { width: 22px; height: 22px; }
+  body.touch .el span { display: none; }
+  @media (orientation: portrait) {
+    body.touch .element-bar {
+      top: auto; left: auto; transform: none; flex-direction: column;
+      right: calc(14px + env(safe-area-inset-right)); bottom: calc(220px + env(safe-area-inset-bottom));
+    }
+    body.touch .stats > div:nth-child(n+3) { display: none; }
+  }
+  @media (max-height: 500px) {
+    h1 { font-size: 44px; }
+    .sub { margin-bottom: 12px; }
+    .lore { margin-bottom: 14px; font-size: 13px; }
+    .elements-legend { margin-top: 10px; }
+  }
+
+  @media (max-width: 640px) {
+    .controls { grid-template-columns: 1fr; }
+    .el { width: 46px; height: 46px; }
+    .hint { display: none; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="loading" class="overlay">
+  <h1>ELEMENTIA</h1>
+  <div class="load-track"><div id="load-bar"></div></div>
+  <div id="load-text">Laden…</div>
+</div>
+
+<div id="title" class="overlay hidden">
+  <h1>ELEMENTIA</h1>
+  <div class="sub">MEESTER DER VIER ELEMENTEN</div>
+  <p class="lore">Op een vergeten eiland brandt nog één vlam in het oude heiligdom. Schimgeesten uit de nevel willen hem doven.
+    Jij bent de laatste zwerver die vuur, water, aarde én lucht kan bespelen.</p>
+  <button id="start-btn" class="btn">BEGIN</button>
+  <div class="elements-legend">
+    <div><strong style="color:var(--fire)">1 · Vuur</strong>Vuurbal · Vlammenring</div>
+    <div><strong style="color:var(--water)">2 · Water</strong>Waterzweep (vertraagt) · Genezing</div>
+    <div><strong style="color:var(--earth)">3 · Aarde</strong>Rotsblok · Rotspieken</div>
+    <div><strong style="color:var(--air)">4 · Lucht</strong>Windstoot · Luchtsprong · Zweven</div>
+  </div>
+  <div class="controls touch-only" style="grid-template-columns:auto auto">
+    <b>Linkerduim</b><span>Lopen (helemaal uitduwen = rennen)</span>
+    <b>Rechts slepen</b><span>Rondkijken en richten</span>
+    <b>Grote knop</b><span>Aanval (vasthouden)</span>
+    <b>★ / ⤒</b><span>Speciale kracht / springen (vasthouden = zweven)</span>
+    <b>Iconen boven</b><span>Element wisselen · Liggend speelt het best</span>
+  </div>
+  <div class="controls desktop-only">
+    <b>WASD</b><span>Lopen · <b>Shift</b> rennen</span>
+    <b>Muis</b><span>Rondkijken en richten</span>
+    <b>Linkerklik</b><span>Basisaanval (ingedrukt houden)</span>
+    <b>Rechterklik / F</b><span>Speciale kracht</span>
+    <b>1–4 · Q/E · scroll</b><span>Element wisselen</span>
+    <b>Spatie</b><span>Springen (lucht: vasthouden om te zweven)</span>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <h1 style="font-size:48px">PAUZE</h1>
+  <p class="lore" style="margin-top:16px">Klik of tik om verder te spelen</p>
+</div>
+
+<div id="dead" class="overlay hidden">
+  <h1 style="font-size:56px">DE VLAM DOOFT</h1>
+  <p class="lore" style="margin-top:16px">Je hield stand tot golf <b id="final-wave">0</b> met <b id="final-score">0</b> punten.</p>
+  <button id="restart-btn" class="btn">OPNIEUW</button>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="bars">
+    <div class="bar-label">Gezondheid</div>
+    <div class="bar"><i id="hp"></i></div>
+    <div class="bar-label">Chi</div>
+    <div class="bar"><i id="chi"></i><i id="chi-cost"></i></div>
+  </div>
+  <div class="stats">
+    <div class="small">GOLF</div>
+    <div class="big" id="wave">0</div>
+    <div class="small">PUNTEN</div>
+    <div class="big" id="score">0</div>
+    <div class="small">GEESTEN · <span id="foes">0</span></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="toast"></div>
+  <div id="el-name">Vuur</div>
+  <div class="element-bar">
+    <div class="el active" data-el="fire" style="--c:var(--fire)"><span>1</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3-1-3 0-6 1-9.5z"/></svg></div>
+    <div class="el" data-el="water" style="--c:var(--water)"><span>2</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5C9 7 6 10.5 6 14.5a6 6 0 0 0 12 0c0-4-3-7.5-6-12z"/></svg></div>
+    <div class="el" data-el="earth" style="--c:var(--earth)"><span>3</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 20 9 7l4 6 3-4 6 11z"/></svg></div>
+    <div class="el" data-el="air" style="--c:var(--air)"><span>4</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3M3 19h7"/></svg></div>
+  </div>
+  <div class="hint desktop-only">Esc = pauze</div>
+  <div id="btn-attack" class="tbtn touch-only"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3-1-3 0-6 1-9.5z"/></svg></div>
+  <div id="btn-special" class="tbtn touch-only"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.9 6.6 7.1.7-5.4 4.8 1.6 7L12 17.4 5.8 21l1.6-7L2 9.3l7.1-.7z"/></svg></div>
+  <div id="btn-jump" class="tbtn touch-only"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V6M5 12l7-7 7 7"/></svg></div>
+  <div id="btn-pause" class="tbtn touch-only"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg></div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
