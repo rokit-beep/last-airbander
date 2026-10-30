@@ -20,13 +20,10 @@ Open daarna <http://localhost:8000>.
 
 ### Online via GitHub Pages
 
-De workflow `.github/workflows/pages.yml` zet het spel bij elke push automatisch online op
-`https://rokit-beep.github.io/last-airbander/`. Eenmalig instellen:
+Speel direct op **<https://rokit-beep.github.io/last-airbander/>**.
 
-1. Pages werkt op een gratis account alleen voor **publieke** repositories
-   (*Settings → General → Danger Zone → Change visibility*). Met GitHub Pro kan het ook privé.
-2. *Settings → Pages → Build and deployment → Source*: kies **GitHub Actions**.
-3. *Actions → Deploy naar GitHub Pages → Run workflow* (of push een nieuwe commit).
+De workflow `.github/workflows/pages.yml` zet bij elke push de bestanden op de branch `gh-pages`,
+die GitHub Pages publiceert. Na een minuutje staat de nieuwe versie online.
 
 ### Op de telefoon
 
